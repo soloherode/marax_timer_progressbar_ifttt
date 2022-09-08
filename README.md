@@ -6,3 +6,13 @@ An IFTTT webhook was integrated that sends a notification to your smartphone whe
 
 For hardware descriptions have a look at the original marax_timer readme. 
 
+Progress Bar Shot Timer
+
+The progress bar will be at 100% after 25 seconds. 
+![shottimer](https://raw.githubusercontent.com/soloherode/marax_timer_progressbar_ifttt/master/resources/shot_timer_progressbar.JPG)
+
+IFTTT Webhook
+![webhook](https://raw.githubusercontent.com/soloherode/marax_timer_progressbar_ifttt/master/resources/ifttt_webhook.jpg)
+
+Smartphone notification
+![notification](https://raw.githubusercontent.com/soloherode/marax_timer_progressbar_ifttt/master/resources/notification.jpg)
