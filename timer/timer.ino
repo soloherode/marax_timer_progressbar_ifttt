@@ -10,6 +10,15 @@
 #include <Wire.h>
 #include <Timer.h>
 #include <SoftwareSerial.h>
+#include "AnotherIFTTTWebhook.h"
+
+// Set WiFi credentials
+#define WIFI_SSID "YOURSSID" // Insert your WiFi SSID
+#define WIFI_PASS "YOURPASSWORD" // Insert your WiFi password
+
+// Set IFTTT Webhooks event name and key
+#define IFTTT_Key "XYZ" // Insert your IFTTT webhook key
+#define IFTTT_Event "coffee_ready" // insert your IFTTT event name 
 
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 SoftwareSerial mySerial(D5, D6);
@@ -29,12 +38,32 @@ char receivedChars[numChars];
 static byte ndx = 0;
 char endMarker = '\n';
 char rc;
+bool tempReached = false;
+int currentTemp = 0;
+String currentTempString;
 
 void setup() {
-  WiFi.mode(WIFI_OFF);
 
   Serial.begin(9600);
   mySerial.begin(9600);
+
+  // Connect to wifi
+
+  WiFi.begin(WIFI_SSID, WIFI_PASS);   
+  
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(100);
+  }
+
+  // Connected to WiFi
+  Serial.println();
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+
+  if(tempReached == false){
+    send_webhook(IFTTT_Event,IFTTT_Key,"Espresso machine is switched on"," "," "); // send for initial starting of coffee machine
+  }
 
   pinMode(PUMP_PIN, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -47,6 +76,7 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
   display.setTextColor(WHITE);
+  display.setRotation(2); // added by me 
   display.display();
   mySerial.write(0x11);
 }
@@ -131,13 +161,24 @@ String getTimer() {
   return outMin;
 }
 
+void drawProgressbar(int x,int y, int width,int height, int progress)
+{
+   progress = progress > 100 ? 100 : progress; // set the progress value to 100
+   progress = progress < 0 ? 0 :progress; // start the counting to 0-100
+   float bar = ((float)(width-1) / 100) * progress;
+   display.drawRect(x, y, width, height, WHITE);
+   display.fillRect(x+2, y+2, bar , height-4, WHITE); // initailize the graphics fillRect(int x, int y, int width, int height)
+  }
+
 void updateDisplay() {
   display.clearDisplay();
   if (displayOn) {
     if (timerStarted) {
-      display.setTextSize(7);
-      display.setCursor(25, 8);
+      display.setTextSize(5);
+      display.setCursor(40, 4);
       display.print(getTimer());
+      // draw progress bar 
+      drawProgressbar(18, 48, 100, 12, timerCount*4);
     } else {
       // draw line
       display.drawLine(74, 0, 74, 63, SSD1306_WHITE);
@@ -165,7 +206,7 @@ void updateDisplay() {
         }
         // draw empty circle if heating off
         if (String(receivedChars[23]) == "0") {
-          display.drawCircle(45, 7, 6, SSD1306_WHITE);
+          display.drawCircle(45, 7, 6, SSD1306_WHITE);          
         }
       } else {
         // in boost heating mode
@@ -175,11 +216,16 @@ void updateDisplay() {
         }
         // draw empty rectangle if heating off
         if (String(receivedChars[23]) == "0") {
-          display.drawRect(39, 1, 12, 12, SSD1306_WHITE);
+          display.drawRect(39, 1, 12, 12, SSD1306_WHITE); 
         }
       }
       // draw temperature
       if (receivedChars[14] && receivedChars[15] && receivedChars[16]) {
+
+      
+        currentTempString = String(receivedChars[15]) + String(receivedChars[16]);
+        currentTemp = currentTempString.toInt();
+        
         display.setTextSize(3);
         display.setCursor(1, 20);
         if (String(receivedChars[14]) != "0") {
@@ -191,7 +237,14 @@ void updateDisplay() {
         if (String(receivedChars[14]) == "0") {
           display.print("C");
         }
+
+        if(currentTemp > 93 && !tempReached){
+              send_webhook(IFTTT_Event,IFTTT_Key,"Espresso machine is heated up"," "," "); // send once if heated up
+              tempReached = true;
+        }
+        
       }
+      
       // draw steam temperature
       if (receivedChars[6] && receivedChars[7] && receivedChars[8]) {
         display.setTextSize(2);
@@ -201,7 +254,7 @@ void updateDisplay() {
         }
         display.print(String(receivedChars[7]));
         display.print(String(receivedChars[8]));
-        display.print((char)247);
+        display.print((char)247); // Grad Zeichen
         display.print("C");
       }
     }
